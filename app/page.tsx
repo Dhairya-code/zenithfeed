@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Article = {
   title: string;
@@ -24,26 +24,19 @@ const INTERESTS = [
 ];
 
 export default function Home() {
-  const [selected, setSelected] = useState<string[]>(["india"]);
+  const [selected, setSelected] = useState<string>("technology");
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [fetched, setFetched] = useState(false);
 
-  function toggleInterest(value: string) {
-    setSelected((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
-    );
-  }
-
-  async function fetchNews() {
-    if (selected.length === 0) { alert("Select at least one interest."); return; }
+  async function fetchNews(topic: string) {
     setLoading(true); setError(""); setArticles([]); setFetched(false);
     try {
       const res = await fetch("/api/news", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topics: selected }),
+        body: JSON.stringify({ topics: [topic] }),
       });
       if (!res.ok) throw new Error("Failed to fetch news");
       const data = await res.json();
@@ -55,6 +48,8 @@ export default function Home() {
       setLoading(false);
     }
   }
+
+  useEffect(() => { fetchNews("technology"); }, []);
 
   function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -180,11 +175,18 @@ export default function Home() {
           box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
         .interests-inner {
-          max-width: 1200px; margin: 0 auto; padding: 0 24px;
+          max-width: 1200px; margin: 0 auto; padding: 0 0 0 24px;
           display: flex; align-items: stretch; gap: 0;
-          overflow-x: auto;
         }
-        .interests-inner::-webkit-scrollbar { display: none; }
+        .topics-scroll {
+          display: flex;
+          align-items: stretch;
+          overflow-x: auto;
+          flex: 1;
+          min-width: 0;
+          scrollbar-width: none;
+        }
+        .topics-scroll::-webkit-scrollbar { display: none; }
         .section-label-bar {
           font-family: var(--mono);
           font-size: 9px;
@@ -226,7 +228,6 @@ export default function Home() {
         .topic-btn.active { color: var(--ink); font-weight: 600; }
         .topic-btn.active::after { transform: scaleX(1); }
         .analyze-btn {
-          margin-left: auto;
           padding: 0 24px;
           background: var(--ink);
           color: #fff;
@@ -537,14 +538,59 @@ export default function Home() {
           line-height: 2.2;
         }
 
+        /* ── RESPONSIVE ── */
+
         @media (max-width: 900px) {
           .news-grid { grid-template-columns: repeat(2, 1fr); }
+          .topbar-right { gap: 12px; }
+          .main-wrap { padding: 24px 20px 60px; }
         }
-        @media (max-width: 600px) {
-          .news-grid { grid-template-columns: 1fr; }
-          .masthead-logo { font-size: 52px; letter-spacing: -2px; }
+
+        @media (max-width: 640px) {
+          /* Topbar */
+          .topbar-left { font-size: 9px; letter-spacing: 0.8px; }
+          .topbar-right { font-size: 9px; letter-spacing: 0.8px; gap: 10px; }
+          .topbar-right span:last-child { display: none; }
+
+          /* Masthead */
+          .masthead { padding: 14px 0 10px; }
+          .masthead-logo { letter-spacing: -2px; }
           .masthead-stripe { flex-direction: column; gap: 4px; text-align: center; }
+          .masthead-tag { display: none; }
+
+          /* Nav */
           .section-label-bar { display: none; }
+          .interests-inner { padding: 0; }
+          .topic-btn { padding: 12px 12px; font-size: 11px; }
+          .analyze-btn { padding: 0 16px; font-size: 10px; }
+
+          /* Grid */
+          .news-grid { grid-template-columns: 1fr; }
+
+          /* Cards */
+          .card { padding: 14px; gap: 10px; }
+          .card-title { font-size: 15px; }
+          .ai-summary-text { font-size: 12px; }
+
+          /* Layout */
+          .main-wrap { padding: 16px 16px 60px; }
+          .landing { padding: 56px 16px; }
+          .landing-headline { font-size: 24px; }
+
+          /* Footer */
+          .site-footer { margin-top: 40px; }
+          .footer-inner { flex-direction: column; align-items: center; gap: 10px; }
+          .footer-right { text-align: center; }
+          .footer-logo { font-size: 20px; }
+        }
+
+        @media (max-width: 400px) {
+          .topbar-inner { flex-direction: column; gap: 2px; align-items: flex-start; }
+          .topbar-right { opacity: 0.7; }
+          .masthead-logo { letter-spacing: -1px; }
+          .main-wrap { padding: 12px 12px 60px; }
+          .card { padding: 12px; gap: 8px; }
+          .card-title { font-size: 14px; }
         }
       `}</style>
 
@@ -574,19 +620,19 @@ export default function Home() {
       {/* INTERESTS NAV */}
       <nav className="interests-bar">
         <div className="interests-inner">
-          <span className="section-label-bar">Topics</span>
-          {INTERESTS.map((i) => (
-            <button
-              key={i.value}
-              onClick={() => toggleInterest(i.value)}
-              className={`topic-btn ${selected.includes(i.value) ? "active" : ""}`}
-            >
-              {i.label}
-            </button>
-          ))}
-          <button onClick={fetchNews} disabled={loading} className="analyze-btn">
-            {loading ? "Analyzing..." : "Analyze →"}
-          </button>
+          <div className="topics-scroll">
+            <span className="section-label-bar">Topics</span>
+            {INTERESTS.map((i) => (
+              <button
+                key={i.value}
+                onClick={() => { setSelected(i.value); fetchNews(i.value); }}
+                className={`topic-btn ${selected === i.value ? "active" : ""}`}
+                disabled={loading}
+              >
+                {i.label}
+              </button>
+            ))}
+          </div>
         </div>
       </nav>
 
@@ -609,7 +655,7 @@ export default function Home() {
             <p className="landing-headline">
               The news, verified.<br />Personalized for you.
             </p>
-            <p className="landing-sub">Select topics above and click Analyze</p>
+            <p className="landing-sub">Select a topic above to get started</p>
           </div>
         )}
 
